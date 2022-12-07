@@ -1,6 +1,6 @@
 # Rust-Webserver
 
-A simple webserver written in rust. To use it create a html directory in src and add your html files there
+A simple webserver written in rust. To use it create a html directory in src and add your html files there. Alternatively you could also edit the base_dir.
 
 # Disclamer
 
