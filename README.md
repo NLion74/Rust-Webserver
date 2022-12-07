@@ -4,5 +4,5 @@ A simple webserver written in rust. To use it create a html directory in src and
 
 # Disclamer
 
-- ⚠️ The project was for fun and learning and should **not** be used in production.
+- ⚠️ The project was designed for fun and learning, it should **NOT** be used for prooduction purposes.
 - ⚠️ There are probably many bugs and functionalities which are not added and never will be.
