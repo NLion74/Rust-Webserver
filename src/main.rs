@@ -1,10 +1,10 @@
-use std::net::TcpListener;
-use std::net::TcpStream;
-use std::io::prelude::*;
-use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
-
+use std::{
+net::{TcpListener, TcpStream},
+io::prelude::*,
+collections::HashMap,
+fs,
+path::Path,
+};
 
 fn main() {
     let ip = "0.0.0.0";
@@ -12,30 +12,27 @@ fn main() {
 
     let socket =
         TcpListener::bind(format!("{}:{}", ip, port)).expect("unable to read from socket");
-    
+
     println!("Webserver is running at {}:{}", ip, port);
     println!("");
-    
+
     for data in socket.incoming() {
         let data = data.expect("unable to read from socket");
-    
+
         handleconnection(data);
     }
 }
 
 fn handleconnection(mut data: TcpStream) {
     let mut buffer: [u8;2024] = [0;2024];
-    
     data.read(&mut buffer).expect("unable to read from socket");
+
     let request_data = String::from_utf8_lossy(&buffer);
     let request = HttpRequest::new(request_data.to_string());
 
-    // testing
-    println!("request.url: {}", request.uri);
+    let html = "./html";
 
-    let base_dir = "./html";
-
-    let response = if request.method == "GET" {
+    if request.method == "GET" {
 
         let filename: String = if request.uri == "/" {
             "index.html".to_string()
@@ -46,12 +43,11 @@ fn handleconnection(mut data: TcpStream) {
         else {
             request.uri.to_string()
         };
-        
-        let path: String = format!("{}/{}", base_dir, filename);
+
+        let path: String = format!("{}/{}", html, filename);
 
         if Path::new(&path).exists() {
-            let content = fs::read_to_string(&path).expect("unable to read");
-
+            
             let mime_type =
                 Path::new(&path).extension().expect("unable to read extension").to_string_lossy();
 
@@ -60,35 +56,40 @@ fn handleconnection(mut data: TcpStream) {
                 } else {
                     mime_type.to_string()
                 };
-            
+
+            let content = fs::read(path).unwrap();
+
             let content_type = format!("text/{}", mime_type);
 
-            format!(
-                "HTTP/1.1 200 OK\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n{body}",
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n",
                 content_length=content.len(),
                 content_type=content_type,
-                body=content
-            )
+            );
 
+            data.write(response.as_bytes()).expect("unable to write response data");
+            data.write(&content).expect("unable to write response data");
+            data.flush().expect("unable to flush response data");
         } else {
-            "HTTP/1.1 404 NOT FOUND\r\n\r\nNot Found".to_string()
+            let response: String = "HTTP/1.1 404 NOT FOUND\r\n\r\n404 Not Found".to_string();
+
+            data.write(response.as_bytes()).expect("unable to write response data");
+            data.flush().expect("unable to flush response data");
         }
 
     } else {
-        "HTTP/1.1 500 Internal Server Error\r\n\r\nIn Progress".to_string()
-    };
-    
-    data.write(response.as_bytes()).expect("unable to write response data");
-    data.flush().expect("unable to flush response data");
+        let response: String = "HTTP/1.1 500 Internal Server Error\r\n\r\nIn Progress".to_string();
 
-    println!(
-        "Request: {}",
-        String::from_utf8_lossy(&buffer[..])
+        data.write(response.as_bytes()).expect("unable to write response data");
+        data.flush().expect("unable to flush response data");
+    };
+
+    println!("Request: {}", String::from_utf8_lossy(&buffer[..])
     );
 }
 
 #[derive(Debug)]
-struct HttpRequest {
+pub struct HttpRequest {
     method: String,
     uri: String,
     version: String,
@@ -97,7 +98,7 @@ struct HttpRequest {
 }
 
 impl HttpRequest {
-    fn new(request_data: String) -> Self {
+    pub fn new(request_data: String) -> Self {
         let r: Vec<&str> = request_data.splitn(2, "\r\n\r\n").collect();
         let request_data = r[0];
         let body = r[1].to_string();
