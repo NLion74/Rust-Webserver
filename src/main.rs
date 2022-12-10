@@ -105,7 +105,7 @@ fn handleconnection(mut data: TcpStream) {
         }
 
     } else {
-        let responsedir = "./responses";
+            let responsedir = "./responses";
             let filename = "500.html";
             let path: String = format!("{}/{}", responsedir, filename);
 
