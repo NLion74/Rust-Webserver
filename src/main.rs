@@ -6,7 +6,6 @@ fs,
 path::Path,
 thread::{self, JoinHandle},
 sync::{mpsc, Mutex, Arc},
-time::Duration,
 };
 
 fn main() {
@@ -45,10 +44,6 @@ fn handleconnection(mut data: TcpStream) {
         }
         else if request.uri.contains("?v=") {
             request.uri.split("?v=").take(1).collect()
-        }
-        else if request.uri == "/sleep" {
-            thread::sleep(Duration::from_secs(5));
-            "index.html".to_string()
         }
         else {
             request.uri.to_string()
@@ -206,6 +201,7 @@ impl Worker {
     }
 }
 
+#[derive(Debug)]
 pub struct HttpRequest {
     method: String,
     uri: String,
