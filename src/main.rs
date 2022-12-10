@@ -4,6 +4,7 @@ io::prelude::*,
 collections::HashMap,
 fs,
 path::Path,
+thread,
 };
 
 fn main() {
@@ -30,9 +31,8 @@ fn handleconnection(mut data: TcpStream) {
     let request_data = String::from_utf8_lossy(&buffer);
     let request = HttpRequest::new(request_data.to_string());
 
-    let html = "./html";
-
     if request.method == "GET" {
+        let htmldir = "./html";
 
         let filename: String = if request.uri == "/" {
             "index.html".to_string()
@@ -44,10 +44,10 @@ fn handleconnection(mut data: TcpStream) {
             request.uri.to_string()
         };
 
-        let path: String = format!("{}/{}", html, filename);
+        let path: String = format!("{}/{}", htmldir, filename);
 
         if Path::new(&path).exists() {
-            
+
             let mime_type =
                 Path::new(&path).extension().expect("unable to read extension").to_string_lossy();
 
@@ -60,35 +60,85 @@ fn handleconnection(mut data: TcpStream) {
             let content = fs::read(path).unwrap();
 
             let content_type = format!("text/{}", mime_type);
+            let content_length: usize = content.len();
+            let status_line = "HTTP/1.1 200 OK";
 
             let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n",
-                content_length=content.len(),
-                content_type=content_type,
+                "{status_line}\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n",
+                status_line = status_line,
+                content_length = content_length,
+                content_type = content_type,
             );
 
             data.write(response.as_bytes()).expect("unable to write response data");
             data.write(&content).expect("unable to write response data");
             data.flush().expect("unable to flush response data");
         } else {
-            let response: String = "HTTP/1.1 404 NOT FOUND\r\n\r\n404 Not Found".to_string();
+            let responsedir = "./responses";
+            let filename = "404.html";
+            let path: String = format!("{}/{}", responsedir, filename);
 
+            let mime_type =
+                Path::new(&path).extension().expect("unable to read extension").to_string_lossy();
+
+                let mime_type = if mime_type == "js" {
+                    "javascript".to_string()
+                } else {
+                    mime_type.to_string()
+                };
+
+            let content = fs::read(path).unwrap();
+
+            let content_type = format!("text/{}", mime_type);
+            let content_length: usize = content.len();
+            let status_line = "HTTP/1.1 404 NOT FOUND";
+
+            let response = format!(
+                "{status_line}\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n",
+                status_line = status_line,
+                content_length = content_length,
+                content_type = content_type,
+            );
             data.write(response.as_bytes()).expect("unable to write response data");
+            data.write(&content).expect("unable to write response data");
             data.flush().expect("unable to flush response data");
         }
 
     } else {
-        let response: String = "HTTP/1.1 500 Internal Server Error\r\n\r\nIn Progress".to_string();
+        let responsedir = "./responses";
+            let filename = "500.html";
+            let path: String = format!("{}/{}", responsedir, filename);
 
-        data.write(response.as_bytes()).expect("unable to write response data");
-        data.flush().expect("unable to flush response data");
+            let mime_type =
+                Path::new(&path).extension().expect("unable to read extension").to_string_lossy();
+
+                let mime_type = if mime_type == "js" {
+                    "javascript".to_string()
+                } else {
+                    mime_type.to_string()
+                };
+
+            let content = fs::read(path).unwrap();
+
+            let content_type = format!("text/{}", mime_type);
+            let content_length: usize = content.len();
+            let status_line = "HTTP/1.1 500 Internal Server Error";
+
+            let response = format!(
+                "{status_line}\r\nContent-Length: {content_length}\r\nContent-Type: {content_type}\r\n\r\n",
+                status_line = status_line,
+                content_length = content_length,
+                content_type = content_type,
+            );
+            data.write(response.as_bytes()).expect("unable to write response data");
+            data.write(&content).expect("unable to write response data");
+            data.flush().expect("unable to flush response data");
     };
 
     println!("Request: {}", String::from_utf8_lossy(&buffer[..])
     );
 }
 
-#[derive(Debug)]
 pub struct HttpRequest {
     method: String,
     uri: String,
