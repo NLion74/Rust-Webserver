@@ -4,12 +4,16 @@ io::prelude::*,
 collections::HashMap,
 fs,
 path::Path,
-thread,
+thread::{self, JoinHandle},
+sync::{mpsc, Mutex, Arc},
+time::Duration,
 };
 
 fn main() {
     let ip = "0.0.0.0";
     let port = "6969";
+
+    let pool = ThreadPool::new(8);
 
     let socket =
         TcpListener::bind(format!("{}:{}", ip, port)).expect("unable to read from socket");
@@ -20,7 +24,9 @@ fn main() {
     for data in socket.incoming() {
         let data = data.expect("unable to read from socket");
 
-        handleconnection(data);
+        pool.execute(|| {
+            handleconnection(data);
+        });
     }
 }
 
@@ -39,6 +45,10 @@ fn handleconnection(mut data: TcpStream) {
         }
         else if request.uri.contains("?v=") {
             request.uri.split("?v=").take(1).collect()
+        }
+        else if request.uri == "/sleep" {
+            thread::sleep(Duration::from_secs(5));
+            "index.html".to_string()
         }
         else {
             request.uri.to_string()
@@ -137,6 +147,63 @@ fn handleconnection(mut data: TcpStream) {
 
     println!("Request: {}", String::from_utf8_lossy(&buffer[..])
     );
+}
+
+pub struct ThreadPool {
+    workers: Vec<Worker>,
+    senders: mpsc::Sender<Job>,
+}
+
+type Job = Box<dyn FnOnce() + Send + 'static>;
+
+impl ThreadPool {
+    pub fn new(size: usize) -> ThreadPool {
+        assert!(size > 0);
+
+        let (senders, receiver) =
+            mpsc::channel();
+
+        let receiver =
+            Arc::new(Mutex::new(receiver));
+
+        let mut workers = Vec::with_capacity(size);
+
+        for id in 0..size {
+            workers.push(Worker::new(
+                id, 
+                Arc::clone(&receiver)
+            ));
+        }
+
+        ThreadPool { workers, senders }
+}
+
+    pub fn execute<F>(&self, f: F)
+    where
+        F: FnOnce() + Send +'static {
+            let job = Box::new(f);
+            self.senders.send(job).unwrap();
+        }
+}
+
+struct Worker {
+    id: usize,
+    thread: thread::JoinHandle<()>
+}
+
+impl Worker {
+    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
+        let thread =
+            thread::spawn(move || loop {
+                let job = receiver.lock().unwrap().recv().unwrap();
+
+                println!("Worker {} got a job; executing", id);
+
+                job()
+            });
+
+        Worker { id, thread }
+    }
 }
 
 pub struct HttpRequest {
