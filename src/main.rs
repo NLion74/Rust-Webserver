@@ -5,7 +5,8 @@ collections::HashMap,
 fs,
 path::Path,
 thread::{self, JoinHandle},
-sync::{mpsc, Mutex, Arc},
+sync::{mpsc, Mutex, Arc}, any, f32::consts::E,
+ffi::OsStr
 };
 
 fn main() {
@@ -45,8 +46,11 @@ fn handleconnection(mut data: TcpStream) {
         else if request.uri.contains("?v=") {
             request.uri.split("?v=").take(1).collect()
         }
+        else if Path::new(&request.uri).extension().unwrap_or_default().to_string_lossy() == "" {
+            format!("{}/index.html", request.uri)
+        }
         else {
-            request.uri.to_string()
+            request.uri
         };
 
         let path: String = format!("{}/{}", htmldir, filename);
@@ -54,14 +58,16 @@ fn handleconnection(mut data: TcpStream) {
         if Path::new(&path).exists() {
 
             let mime_type =
-                Path::new(&path).extension().expect("unable to read extension").to_string_lossy();
-
+                Path::new(&path).extension().unwrap_or_default().to_string_lossy();
+            
                 let mime_type = if mime_type == "js" {
                     "javascript".to_string()
+                } else if mime_type == "" {
+                    "html".to_string()
                 } else {
                     mime_type.to_string()
                 };
-
+            
             let content = fs::read(path).unwrap();
 
             let content_type = format!("text/{}", mime_type);
